@@ -1,3 +1,8 @@
+-- Enunciado 3
+SELECT COUNT(*) FROM raw.cafe_sales;
+SELECT COUNT (DISTINCT transaction_id) FROM raw.cafe_sales;
+
+
 -- Enunciado 2
 DROP TABLE IF EXISTS raw.cafe_sales CASCADE;
 
@@ -11,9 +16,6 @@ CREATE TABLE raw.cafe_sales (
     location TEXT,
     transaction_date TEXT
 );
-
-SELECT COUNT(*) FROM raw.cafe_sales;
-SELECT * FROM raw.cafe_sales;
 
 
 
