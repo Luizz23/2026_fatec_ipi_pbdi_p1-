@@ -1,3 +1,57 @@
+-- 20
+SELECT
+    COALESCE(l.location, 'TODOS') AS local,
+    COALESCE(p.payment, 'TODOS') AS pagamento,
+    SUM(f.total_spent)::NUMERIC(10,2) AS receita
+FROM dw.fact_sales f
+JOIN dw.dim_location l ON l.location_sk = f.location_sk
+JOIN dw.dim_payment p ON p.payment_sk = f.payment_sk
+GROUP BY CUBE (l.location, p.payment)
+ORDER BY local, pagamento;
+
+
+
+-- 19
+SELECT
+    COALESCE(i.category, 'TODAS') AS categoria,
+    COALESCE(i.item, 'TODOS') AS item,
+    SUM(f.total_spent)::NUMERIC(12,2) AS receita
+FROM dw.fact_sales f
+JOIN dw.dim_item i ON i.item_sk = f.item_sk
+GROUP BY ROLLUP (i.category, i.item)
+ORDER BY categoria, item;
+
+
+
+
+-- 18
+SELECT
+    i.item,
+    p.payment,
+    SUM(f.total_spent)::NUMERIC(12,2) AS receita
+FROM dw.fact_sales f
+JOIN dw.dim_item i ON i.item_sk = f.item_sk
+JOIN dw.dim_payment p ON p.payment_sk = f.payment_sk
+JOIN dw.dim_date d ON d.date_sk = f.date_sk
+WHERE i.category = 'Bebida'
+  AND p.payment IN ('Cash', 'Digital Wallet')
+  AND d.month BETWEEN 1 AND 6
+GROUP BY i.item, p.payment
+ORDER BY receita DESC
+;
+
+-- 17
+SELECT
+    i.item,
+    SUM(f.total_spent)::NUMERIC(10,2) AS receita
+FROM dw.fact_sales f
+JOIN dw.dim_item i ON i.item_sk = f.item_sk
+JOIN dw.dim_date d ON d.date_sk = f.date_sk
+WHERE d.quarter = 4
+GROUP BY i.item
+ORDER BY receita DESC
+;
+
 -- 16
 SELECT
     d.day_of_week,
@@ -21,9 +75,6 @@ FROM dw.fact_sales f
 JOIN dw.dim_item i ON i.item_sk = f.item_sk
 GROUP BY i.category, i.item
 ORDER BY receita DESC;
-
-
-
 
 -- 14
 SELECT
