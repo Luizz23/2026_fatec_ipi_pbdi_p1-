@@ -1,3 +1,90 @@
+-- Enunciado 13
+DO $$ 
+DECLARE 
+    -- Único cursor não vinculado 
+    c_relatorio     REFCURSOR; 
+    
+    -- Variável para guardar o nome da dimensão 
+    v_dimensao      TEXT; 
+    v_sql           TEXT; 
+    
+    -- Variáveis de métricas
+    v_total_receita NUMERIC(12,2); 
+    v_valor         TEXT; 
+    v_vendas        BIGINT; 
+    v_receita       NUMERIC(12,2); 
+    v_percentual    NUMERIC(5,2); 
+    
+    -- Contadores
+    v_posicao       INT; 
+    v_linhas_dim    INT; 
+    v_linhas_total  INT := 0; 
+
+BEGIN 
+    --  Calcula a receita total da fato antes do laço
+    SELECT SUM(total_spent) 
+    INTO v_total_receita 
+    FROM dw.fact_sales; 
+
+    -- Laço numérico tradicional 
+    FOR i IN 1..3 LOOP 
+        
+        -- Atribui o nome da dimensão da vez mantendo a ordem obrigatória
+        IF i = 1 THEN 
+            v_dimensao := 'item'; 
+        ELSIF i = 2 THEN 
+            v_dimensao := 'payment'; 
+        ELSE 
+            v_dimensao := 'location'; 
+        END IF; 
+
+        v_posicao    := 0; 
+        v_linhas_dim := 0; 
+
+        -- Consulta dinâmica por v_dimensao
+        v_sql := 
+            'SELECT d.' || v_dimensao || ', COUNT(*), SUM(f.total_spent) ' || 
+            'FROM dw.fact_sales f ' || 
+            'JOIN dw.dim_' || v_dimensao || ' d ON d.' || v_dimensao || '_sk = f.' || v_dimensao || '_sk ' || 
+            'GROUP BY d.' || v_dimensao || ' ' || 
+            'ORDER BY SUM(f.total_spent) DESC'; 
+
+        --  Abertura do cursor 
+        OPEN c_relatorio FOR EXECUTE v_sql; 
+        
+        LOOP 
+            
+            FETCH c_relatorio INTO v_valor, v_vendas, v_receita; 
+            
+            
+            EXIT WHEN NOT FOUND; 
+            
+            v_posicao    := v_posicao + 1; 
+            v_linhas_dim := v_linhas_dim + 1; 
+            v_percentual := ROUND((v_receita / v_total_receita) * 100, 2); 
+            
+            
+            RAISE NOTICE '% | % - %: % vendas, receita % (% %% do total)', 
+                v_dimensao, v_posicao, v_valor, v_vendas, v_receita, v_percentual; 
+        END LOOP; 
+
+        --  Fechamento do cursor 
+        CLOSE c_relatorio; 
+
+        --  Relatório de linhas por dimensão
+        RAISE NOTICE 'Total de linhas lidas na dimensão %: %', v_dimensao, v_linhas_dim; 
+       
+        
+        v_linhas_total := v_linhas_total + v_linhas_dim; 
+    END LOOP; 
+
+    --  Relatório do total geral de linhas lidas
+    RAISE NOTICE 'Total geral de linhas lidas: %', v_linhas_total; 
+
+END; 
+$$;
+
+
 -- Enunciado 12
 DROP TABLE IF EXISTS dw.fact_sales CASCADE;
 
