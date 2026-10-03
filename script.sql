@@ -1,3 +1,42 @@
+-- 16
+SELECT
+    d.day_of_week,
+    d.is_weekend,
+    COUNT(*) AS vendas,
+    SUM(f.total_spent)::NUMERIC(12,2) AS receita
+FROM dw.fact_sales f
+JOIN dw.dim_date d ON d.date_sk = f.date_sk
+GROUP BY d.day_of_week, d.is_weekend
+ORDER BY receita DESC;
+
+
+
+-- 15
+SELECT
+    i.category,
+    i.item,
+    SUM(f.quantity) AS unidades_vendidas,
+    SUM(f.total_spent)::NUMERIC(12,2) AS receita
+FROM dw.fact_sales f
+JOIN dw.dim_item i ON i.item_sk = f.item_sk
+GROUP BY i.category, i.item
+ORDER BY receita DESC;
+
+
+
+
+-- 14
+SELECT
+    d.month,
+    d.month_name,
+    COUNT(*) AS vendas,
+    SUM(f.total_spent)::NUMERIC(12,2) AS receita,
+    ROUND(AVG(f.total_spent), 2) AS ticket_medio
+FROM dw.fact_sales f
+JOIN dw.dim_date d ON d.date_sk = f.date_sk
+GROUP BY d.month, d.month_name
+ORDER BY d.month;
+
 -- Enunciado 13
 DO $$ 
 DECLARE 
