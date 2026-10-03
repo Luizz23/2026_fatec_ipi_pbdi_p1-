@@ -1,5 +1,126 @@
 
 
+-- Enunciado 9
+DROP TABLE IF EXISTS staging.cafe_sales CASCADE;
+
+CREATE TABLE staging.cafe_sales (
+    transaction_id   VARCHAR(20) PRIMARY KEY,
+    item             VARCHAR(20) NOT NULL,
+    quantity         INTEGER NOT NULL CHECK (quantity > 0),
+    price_per_unit   NUMERIC(6,2) NOT NULL CHECK (price_per_unit > 0),
+    total_spent      NUMERIC(8,2) NOT NULL,
+    payment_method   VARCHAR(20) NOT NULL,
+    location         VARCHAR(20) NOT NULL,
+    transaction_date DATE NOT NULL
+);
+
+TRUNCATE TABLE staging.cafe_sales;
+
+INSERT INTO staging.cafe_sales (
+    transaction_id,
+    item,
+    quantity,
+    price_per_unit,
+    total_spent,
+    payment_method,
+    location,
+    transaction_date
+)
+SELECT 
+    transaction_id,
+    item,
+    quantity,
+    price_per_unit,
+    total_spent,
+    payment_method,
+    location,
+    transaction_date
+FROM staging.cafe_tipada
+WHERE transaction_id IS NOT NULL
+  AND item IS NOT NULL
+  AND quantity IS NOT NULL
+  AND price_per_unit IS NOT NULL
+  AND total_spent IS NOT NULL
+  AND payment_method IS NOT NULL
+  AND location IS NOT NULL
+  AND transaction_date IS NOT NULL;
+
+-- Consulta de auditoria e comparação de linhas entre tipada e limpa
+SELECT 
+    (SELECT COUNT(*) FROM staging.cafe_tipada) AS linhas_tipada,
+    (SELECT COUNT(*) FROM staging.cafe_sales) AS linhas_limpas,
+    ((SELECT COUNT(*) FROM staging.cafe_tipada) - (SELECT COUNT(*) FROM staging.cafe_sales)) AS descartadas;
+
+-- Enunciado 8 
+-- R1: preco nulo e item conhecido -> preco do item no cardapio
+UPDATE staging.cafe_tipada t
+SET price_per_unit = (SELECT c.price FROM staging.cardapio c WHERE c.item = t.item)
+WHERE t.price_per_unit IS NULL AND t.item IS NOT NULL;
+
+-- R2: preco nulo, quantidade e total conhecidos -> preco = total / quantidade
+UPDATE staging.cafe_tipada
+SET price_per_unit = total_spent / quantity
+WHERE price_per_unit IS NULL AND quantity IS NOT NULL AND total_spent IS NOT NULL;
+
+-- R3: quantidade nula, preco e total conhecidos -> quantidade = total / preco
+UPDATE staging.cafe_tipada
+SET quantity = ROUND(total_spent / price_per_unit)
+WHERE quantity IS NULL AND price_per_unit IS NOT NULL AND total_spent IS NOT NULL;
+
+-- R4: total nulo, quantidade e preco conhecidos -> total = quantidade x preco
+UPDATE staging.cafe_tipada
+SET total_spent = quantity * price_per_unit
+WHERE total_spent IS NULL AND quantity IS NOT NULL AND price_per_unit IS NOT NULL;
+
+-- R5: item nulo e preço conhecido, pertencente a um único item do cardápio -> item <- item do cardápio
+UPDATE staging.cafe_tipada
+SET item = (
+    SELECT c.item 
+    FROM staging.cardapio c 
+    WHERE c.price = staging.cafe_tipada.price_per_unit
+)
+
+WHERE item IS NULL 
+  AND price_per_unit IN (
+      SELECT price 
+      FROM staging.cardapio 
+      GROUP BY price 
+      HAVING COUNT(*) = 1
+  );
+
+
+-- R6: forma de pagamento ou local nulos -> substituir por 'Unknown'
+UPDATE staging.cafe_tipada
+SET payment_method = 'Unknown'
+WHERE payment_method IS NULL;
+
+UPDATE staging.cafe_tipada
+SET location = 'Unknown'
+WHERE location IS NULL;
+
+
+-- Enuncaido 7
+DROP TABLE IF EXISTS staging.cardapio CASCADE;
+
+CREATE TABLE staging.cardapio (
+    item     VARCHAR(20) PRIMARY KEY,
+    price    NUMERIC(6,2) NOT NULL,
+    category VARCHAR(10) NOT NULL
+);
+
+INSERT INTO staging.cardapio (item, price, category) VALUES
+('Cookie',   1.00, 'Comida'),
+('Tea',      1.50, 'Bebida'),
+('Coffee',   2.00, 'Bebida'),
+('Cake',     3.00, 'Comida'),
+('Juice',    3.00, 'Bebida'),
+('Sandwich', 4.00, 'Comida'),
+('Smoothie', 4.00, 'Bebida'),
+('Salad',    5.00, 'Comida');
+
+SELECT * FROM staging.cardapio
+
+
 -- Enunciado 6
 DROP TABLE IF EXISTS staging.cafe_tipada CASCADE;
  
