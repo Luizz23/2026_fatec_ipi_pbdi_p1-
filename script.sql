@@ -1,4 +1,119 @@
+-- Enunciado 12
+DROP TABLE IF EXISTS dw.fact_sales CASCADE;
 
+CREATE TABLE dw.fact_sales (
+    transaction_nk VARCHAR(20) PRIMARY KEY,
+    date_sk INTEGER NOT NULL REFERENCES dw.dim_date(date_sk),
+    item_sk INTEGER NOT NULL REFERENCES dw.dim_item(item_sk),
+    payment_sk INTEGER NOT NULL REFERENCES dw.dim_payment(payment_sk),
+    location_sk INTEGER NOT NULL REFERENCES dw.dim_location(location_sk),
+    quantity INTEGER NOT NULL,
+    price_per_unit NUMERIC(6,2) NOT NULL,
+    total_spent NUMERIC(8,2) NOT NULL
+);
+
+CREATE INDEX ix_fs_date ON dw.fact_sales(date_sk);
+CREATE INDEX ix_fs_item ON dw.fact_sales(item_sk);
+CREATE INDEX ix_fs_payment ON dw.fact_sales(payment_sk);
+CREATE INDEX ix_fs_location ON dw.fact_sales(location_sk);
+
+TRUNCATE TABLE dw.fact_sales;
+
+INSERT INTO dw.fact_sales (
+    transaction_nk, date_sk, item_sk, payment_sk, location_sk, quantity, price_per_unit, total_spent
+)
+SELECT
+    s.transaction_id,
+    CAST(TO_CHAR(s.transaction_date, 'YYYYMMDD') AS INTEGER),
+    di.item_sk,
+    dp.payment_sk,
+    dl.location_sk,
+    s.quantity,
+    s.price_per_unit,
+    s.total_spent
+FROM staging.cafe_sales s
+JOIN dw.dim_item di ON di.item = s.item
+JOIN dw.dim_payment dp ON dp.payment = s.payment_method
+JOIN dw.dim_location dl ON dl.location = s.location;
+
+SELECT 
+    (SELECT COUNT(*) FROM staging.cafe_sales) AS linhas_staging,
+    (SELECT COUNT(*) FROM dw.fact_sales) AS linhas_fato,
+    (SELECT SUM(total_spent) FROM staging.cafe_sales) AS soma_staging,
+    (SELECT SUM(total_spent) FROM dw.fact_sales) AS soma_fato;
+
+
+
+-- Enunciado 11
+DROP TABLE IF EXISTS dw.dim_item CASCADE;
+CREATE TABLE dw.dim_item (
+    item_sk SERIAL PRIMARY KEY,
+    item VARCHAR(20) NOT NULL UNIQUE,
+    category VARCHAR(10) NOT NULL
+);
+
+DROP TABLE IF EXISTS dw.dim_payment CASCADE;
+CREATE TABLE dw.dim_payment (
+    payment_sk SERIAL PRIMARY KEY,
+    payment VARCHAR(20) NOT NULL UNIQUE
+);
+
+DROP TABLE IF EXISTS dw.dim_location CASCADE;
+CREATE TABLE dw.dim_location (
+    location_sk SERIAL PRIMARY KEY,
+    location VARCHAR(20) NOT NULL UNIQUE
+);
+
+INSERT INTO dw.dim_item (item, category)
+SELECT DISTINCT s.item, c.category
+FROM staging.cafe_sales s
+JOIN staging.cardapio c ON c.item = s.item;
+
+INSERT INTO dw.dim_payment (payment)
+SELECT DISTINCT payment_method FROM staging.cafe_sales;
+
+INSERT INTO dw.dim_location (location)
+SELECT DISTINCT location FROM staging.cafe_sales;
+
+SELECT 'item' AS dimensao, COUNT(*) AS linhas FROM dw.dim_item
+UNION ALL
+SELECT 'payment', COUNT(*) FROM dw.dim_payment
+UNION ALL
+SELECT 'location', COUNT(*) FROM dw.dim_location;
+
+
+
+-- Enunciado 10
+SELECT MIN(transaction_date), MAX(transaction_date) FROM staging.cafe_sales;
+
+DROP TABLE IF EXISTS dw.dim_date CASCADE;
+
+CREATE TABLE dw.dim_date (
+    date_sk INTEGER PRIMARY KEY,
+    full_date DATE NOT NULL UNIQUE,
+    day SMALLINT NOT NULL,
+    month SMALLINT NOT NULL,
+    month_name VARCHAR(15) NOT NULL,
+    quarter SMALLINT NOT NULL,
+    year SMALLINT NOT NULL,
+    day_of_week VARCHAR(15) NOT NULL,
+    is_weekend BOOLEAN NOT NULL
+);
+
+INSERT INTO dw.dim_date
+SELECT
+    CAST(TO_CHAR(d, 'YYYYMMDD') AS INTEGER),
+    d::DATE,
+    EXTRACT(DAY FROM d)::SMALLINT,
+    EXTRACT(MONTH FROM d)::SMALLINT,
+    TO_CHAR(d, 'TMMonth'),
+    EXTRACT(QUARTER FROM d)::SMALLINT,
+    EXTRACT(YEAR FROM d)::SMALLINT,
+    TO_CHAR(d, 'TMDay'),
+    EXTRACT(DOW FROM d) IN (0, 6)
+FROM generate_series(DATE '2023-01-01', DATE '2023-12-31', INTERVAL '1 day') g(d);
+
+SELECT COUNT(*) FROM dw.dim_date;
 
 -- Enunciado 9
 DROP TABLE IF EXISTS staging.cafe_sales CASCADE;
