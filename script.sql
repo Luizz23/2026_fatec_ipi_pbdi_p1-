@@ -1,4 +1,46 @@
--- Enunciad
+
+
+-- Enunciado 6
+DROP TABLE IF EXISTS staging.cafe_tipada CASCADE;
+ 
+CREATE TABLE staging.cafe_tipada (
+    transaction_id VARCHAR(20) PRIMARY KEY,
+    item VARCHAR(20),
+    quantity INTEGER,
+    price_per_unit NUMERIC(6,2),
+    total_spent NUMERIC(8,2),
+    payment_method VARCHAR(20),
+    location VARCHAR(20),
+    transaction_date DATE
+);
+ 
+TRUNCATE TABLE staging.cafe_tipada;
+ 
+INSERT INTO staging.cafe_tipada (
+    transaction_id, item, quantity, price_per_unit,
+    total_spent, payment_method, location, transaction_date
+)
+SELECT 
+    TRIM(transaction_id),
+    CASE WHEN TRIM(item) IN ('', 'ERROR', 'UNKNOWN') THEN NULL ELSE TRIM(item) END,
+    CAST(CASE WHEN TRIM(quantity) IN ('', 'ERROR', 'UNKNOWN') THEN NULL ELSE TRIM(quantity) END AS INTEGER),
+    CAST(CASE WHEN TRIM(price_per_unit) IN ('', 'ERROR', 'UNKNOWN') THEN NULL ELSE TRIM(price_per_unit) END AS NUMERIC(6,2)),
+    CAST(CASE WHEN TRIM(total_spent) IN ('', 'ERROR', 'UNKNOWN') THEN NULL ELSE TRIM(total_spent) END AS NUMERIC(8,2)),
+    CASE WHEN TRIM(payment_method) IN ('', 'ERROR', 'UNKNOWN') THEN NULL ELSE TRIM(payment_method) END,
+    CASE WHEN TRIM(location) IN ('', 'ERROR', 'UNKNOWN') THEN NULL ELSE TRIM(location) END,
+    TO_DATE(CASE WHEN TRIM(transaction_date) IN ('', 'ERROR', 'UNKNOWN') THEN NULL ELSE TRIM(transaction_date) END, 'YYYY-MM-DD')
+FROM raw.cafe_sales;
+ 
+SELECT 
+    COUNT(*) FILTER (WHERE item IS NULL) AS null_item,
+    COUNT(*) FILTER (WHERE quantity IS NULL) AS null_quantity,
+    COUNT(*) FILTER (WHERE price_per_unit IS NULL) AS null_price,
+    COUNT(*) FILTER (WHERE total_spent IS NULL) AS null_total,
+    COUNT(*) FILTER (WHERE payment_method IS NULL) AS null_payment,
+    COUNT(*) FILTER (WHERE location IS NULL) AS null_location,
+    COUNT(*) FILTER (WHERE transaction_date IS NULL) AS null_date
+FROM staging.cafe_tipada;
+
 
 -- Enunciado 5
 SELECT 'item' AS coluna,
